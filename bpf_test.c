@@ -4,8 +4,8 @@
   Then, run `make` and `./bpf_test` to get the output value.
 
   The logic of this program: store the bpf program output, then put 
-  this value into the key-value map where the key is r0 (map[r0] = output). 
-  Finally, from userspace, use key r0 to get the value (map[r0]) from the 
+  this value into the key-value map where the key is `0` (map[0] = output). 
+  Finally, from userspace, use key `0` to get the value (map[0]) from the 
   key-value map and print it. Noting that this bpf program is attached 
   to eth0 raw socket, so it is packet-driven, i.e., once there is a packet 
   in eth0, this program will be run. Thus, a 3s-waiting time is set.
@@ -25,10 +25,10 @@
 #include <stddef.h>
 #include "libbpf.h"
 
-static int test_sock(void)
+static int test_bpf_prog_output(void)
 {
 	int sock = -1, map_fd, prog_fd, i, key;
-	long long value = 0, r0_cnt;
+	long long value = 0, r0_val;
 
 	map_fd = bpf_create_map(BPF_MAP_TYPE_ARRAY, sizeof(key), sizeof(value),
 				256);
@@ -45,17 +45,17 @@ static int test_sock(void)
 		// store value of the test program output r0 in r9
 		BPF_MOV64_REG(BPF_REG_9, BPF_REG_0),
 
-		// set the key is r0
-		BPF_MOV64_IMM(BPF_REG_0, BPF_REG_0),
+		// set the key is 0
+		BPF_MOV64_IMM(BPF_REG_0, 0),
 		BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_0, -4), /* *(u32 *)(fp - 4) = r0 */
 		BPF_MOV64_REG(BPF_REG_2, BPF_REG_10), 
 		BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4), /* r2 = fp - 4 */
 
-		// get the value address of r0 in key-value map, i.e., &map[r0]
+		// get the value address of `0` in key-value map, i.e., &map[0]
 		BPF_LD_MAP_FD(BPF_REG_1, map_fd),
 		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
 
-		// if r0 is found in the map, then set map[r0] as output
+		// if `0` is found in the map, then set map[0] as output
 		BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
 		BPF_STX_MEM(BPF_DW, BPF_REG_0, BPF_REG_9, 0),
 
@@ -84,9 +84,9 @@ static int test_sock(void)
 
 	sleep(3);
 	key = BPF_REG_0;
-	assert(bpf_lookup_elem(map_fd, &key, &r0_cnt) == 0);
+	assert(bpf_lookup_elem(map_fd, &key, &r0_val) == 0);
 		
-	printf("r0: %llx %lld \n", r0_cnt, r0_cnt);
+	printf("r0: %llx %lld \n", r0_val, r0_val);
 
 
 cleanup:
@@ -101,5 +101,5 @@ int main(void)
 	f = popen("ping -c5 localhost", "r");
 	(void)f;
 
-	return test_sock();
+	return test_bpf_prog_output();
 }
