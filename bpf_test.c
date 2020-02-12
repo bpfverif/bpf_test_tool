@@ -1,14 +1,14 @@
 /*
-  This program is used to test the output (r0) of bpf program.
-  Replace the bpf program with `{183, 0, 0, 0, -1},{15, 0, 0, 0, 0},`
-  Then, execute `make` and run `./bpf_test` to get the output value.
+  This program is used to test the output (r0) of bpf program. 
+  Replace `{183, 0, 0, 0, -1},{15, 0, 0, 0, 0},` with the bpf program. 
+  Then, run `make` and `./bpf_test` to get the output value.
 
-  Logic of this program: store the bpf program output, then put this 
-  value into the key-value map where key is r0 (map[r0] = output).
-  Finally, from userspace, use key r0 to get the value from key-value map 
-  and print it. Noting that this bpf program is attached to eth0 raw socket, 
-  so it is packet-driven, i.e., once there is a packet in eth0, this program 
-  will be run. Thus, a 3s-waiting time is set.
+  The logic of this program: store the bpf program output, then put 
+  this value into the key-value map where the key is r0 (map[r0] = output). 
+  Finally, from userspace, use key r0 to get the value (map[r0]) from the 
+  key-value map and print it. Noting that this bpf program is attached 
+  to eth0 raw socket, so it is packet-driven, i.e., once there is a packet 
+  in eth0, this program will be run. Thus, a 3s-waiting time is set.
 */
 
 #include <stdio.h>
@@ -45,17 +45,17 @@ static int test_sock(void)
 		// store value of the test program output r0 in r9
 		BPF_MOV64_REG(BPF_REG_9, BPF_REG_0),
 
-		// set the key is output r0 value
+		// set the key is r0
 		BPF_MOV64_IMM(BPF_REG_0, BPF_REG_0),
 		BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_0, -4), /* *(u32 *)(fp - 4) = r0 */
 		BPF_MOV64_REG(BPF_REG_2, BPF_REG_10), 
 		BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4), /* r2 = fp - 4 */
 
-		// get the value address of r0 in key-value map
+		// get the value address of r0 in key-value map, i.e., &map[r0]
 		BPF_LD_MAP_FD(BPF_REG_1, map_fd),
 		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
 
-		// if r0 is found in the map, then set the value as output
+		// if r0 is found in the map, then set map[r0] as output
 		BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
 		BPF_STX_MEM(BPF_DW, BPF_REG_0, BPF_REG_9, 0),
 
