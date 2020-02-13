@@ -2,6 +2,6 @@ Dependencies:
 
 gcc
 clang (>= 3.8)
-llc (llvm must support BPF target)
+llc (>= 6.0.0)
 libelf-dev
 make :-)
