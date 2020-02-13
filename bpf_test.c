@@ -28,7 +28,7 @@
 static int test_bpf_prog_output(void)
 {
 	int sock = -1, map_fd, prog_fd, i, key;
-	long long value = 0, r0_val;
+	long long value = 0, val[10];
 
 	map_fd = bpf_create_map(BPF_MAP_TYPE_ARRAY, sizeof(key), sizeof(value),
 				256);
@@ -38,24 +38,42 @@ static int test_bpf_prog_output(void)
 	}
 
 	struct bpf_insn prog[] = {
+		BPF_MOV64_IMM(BPF_REG_0, 0),
+        BPF_MOV64_IMM(BPF_REG_2, 0),
+
 		/* test program start */
-		{183, 0, 0, 0, -1},{15, 0, 0, 0, 0},
+		{183, 0, 0, 0, 1},  // r0 = 1
+		{183, 2, 0, 0, 3},  // r2 = 3
 		/* test program end */
 
-		// store value of the test program output r0 in r9
-		BPF_MOV64_REG(BPF_REG_9, BPF_REG_0),
+		/* store r1 in the stack */
+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_2, -8), /* *(u64 *)(fp - 8) = r1 */
 
+		/* store output r0, map[0] = output r0 */
+		// store value of the test program output r0 in r3
+		BPF_MOV64_REG(BPF_REG_9, BPF_REG_0),
 		// set the key is 0
 		BPF_MOV64_IMM(BPF_REG_0, 0),
-		BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_0, -4), /* *(u32 *)(fp - 4) = r0 */
+		BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_0, -12), /* *(u32 *)(fp - 12) = r0 */
 		BPF_MOV64_REG(BPF_REG_2, BPF_REG_10), 
-		BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4), /* r2 = fp - 4 */
-
+		BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -12), /* r2 = fp - 12 */
 		// get the value address of `0` in key-value map, i.e., &map[0]
 		BPF_LD_MAP_FD(BPF_REG_1, map_fd),
 		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-
 		// if `0` is found in the map, then set map[0] as output
+		BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
+		BPF_STX_MEM(BPF_DW, BPF_REG_0, BPF_REG_9, 0),
+
+		/* store output r2, map[2] = output r2 */
+		// get output r2 from the stack, and store it in r3
+		BPF_LDX_MEM(BPF_DW, BPF_REG_9, BPF_REG_10, -8), /* r3 = *(u64 *) (fp - 8) */
+		// set the key is 2
+		BPF_MOV64_IMM(BPF_REG_0, 2),
+		BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_0, -12), /* *(u32 *)(fp - 12) = r0 */
+		BPF_MOV64_REG(BPF_REG_2, BPF_REG_10), 
+		BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -12), /* r2 = fp - 12 */
+		BPF_LD_MAP_FD(BPF_REG_1, map_fd),
+		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
 		BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
 		BPF_STX_MEM(BPF_DW, BPF_REG_0, BPF_REG_9, 0),
 
@@ -83,10 +101,12 @@ static int test_bpf_prog_output(void)
 	}
 
 	sleep(3);
-	key = BPF_REG_0;
-	assert(bpf_lookup_elem(map_fd, &key, &r0_val) == 0);
-		
-	printf("r0: %llx %lld \n", r0_val, r0_val);
+
+	for (int i = 0; i < 10; i++) {
+		key = i;
+		assert(bpf_lookup_elem(map_fd, &key, &val[0]) == 0);
+		printf("r%d: %llx %lld \n", i, val[0], val[0]);	
+	}
 
 
 cleanup:
