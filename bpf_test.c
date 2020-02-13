@@ -1,6 +1,6 @@
 /*
   This program is used to test the output (r0) of bpf program. 
-  Replace `{183, 0, 0, 0, -1},{15, 0, 0, 0, 0},` with the bpf program. 
+  Replace `{183, 0, 0, 0, 1},...,{183, 9, 0, 0, 10},` with the bpf program. 
   Then, run `make` and `./bpf_test` to get the output value.
 
   The logic of this program: store the bpf program output, then put 
@@ -25,6 +25,17 @@
 #include <stddef.h>
 #include "libbpf.h"
 
+#define MAP_STORE(r_i)                                                         \
+        BPF_LDX_MEM(BPF_DW, BPF_REG_9, BPF_REG_10, -(r_i + 1) * size),         \
+        BPF_MOV64_IMM(BPF_REG_0, r_i),                                         \
+        BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_0, -10 * size - 4),             \
+        BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),                                  \
+        BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -10 * size -4),                      \
+        BPF_LD_MAP_FD(BPF_REG_1, map_fd),                                      \
+        BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),   \
+        BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),                                 \
+        BPF_STX_MEM(BPF_DW, BPF_REG_0, BPF_REG_9, 0),                          \
+
 static int test_bpf_prog_output(void)
 {
 	int sock = -1, map_fd, prog_fd, i, key;
@@ -37,45 +48,54 @@ static int test_bpf_prog_output(void)
 		goto cleanup;
 	}
 
+	int size = 8;
+
 	struct bpf_insn prog[] = {
 		BPF_MOV64_IMM(BPF_REG_0, 0),
-        BPF_MOV64_IMM(BPF_REG_2, 0),
+		BPF_MOV64_IMM(BPF_REG_2, 0),
+		BPF_MOV64_IMM(BPF_REG_3, 0),
+		BPF_MOV64_IMM(BPF_REG_4, 0),
+		BPF_MOV64_IMM(BPF_REG_5, 0),
+		BPF_MOV64_IMM(BPF_REG_6, 0),
+		BPF_MOV64_IMM(BPF_REG_7, 0),
+		BPF_MOV64_IMM(BPF_REG_8, 0),
+		BPF_MOV64_IMM(BPF_REG_9, 0),
 
 		/* test program start */
 		{183, 0, 0, 0, 1},  // r0 = 1
+		{183, 1, 0, 0, 2},  // r1 = 2
 		{183, 2, 0, 0, 3},  // r2 = 3
+		{183, 3, 0, 0, 4},  // r3 = 4
+		{183, 4, 0, 0, 5},  // r4 = 5
+		{183, 5, 0, 0, 6},  // r5 = 6
+		{183, 6, 0, 0, 7},  // r6 = 7
+		{183, 7, 0, 0, 8},  // r7 = 8
+		{183, 8, 0, 0, 9},  // r8 = 9
+		{183, 9, 0, 0, 10}, // r9 = 10
 		/* test program end */
 
-		/* store r1 in the stack */
-		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_2, -8), /* *(u64 *)(fp - 8) = r1 */
+		/* store r0 - r9 in the stack */
+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_0, -1 * size), /* *(u64 *)(fp - 8) = r0 */
+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_1, -2 * size),
+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_2, -3 * size),
+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_3, -4 * size),
+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_4, -5 * size),
+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_5, -6 * size),
+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_6, -7 * size),
+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_7, -8 * size),
+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_8, -9 * size),
+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_9, -10 * size),
 
-		/* store output r0, map[0] = output r0 */
-		// store value of the test program output r0 in r3
-		BPF_MOV64_REG(BPF_REG_9, BPF_REG_0),
-		// set the key is 0
-		BPF_MOV64_IMM(BPF_REG_0, 0),
-		BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_0, -12), /* *(u32 *)(fp - 12) = r0 */
-		BPF_MOV64_REG(BPF_REG_2, BPF_REG_10), 
-		BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -12), /* r2 = fp - 12 */
-		// get the value address of `0` in key-value map, i.e., &map[0]
-		BPF_LD_MAP_FD(BPF_REG_1, map_fd),
-		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-		// if `0` is found in the map, then set map[0] as output
-		BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
-		BPF_STX_MEM(BPF_DW, BPF_REG_0, BPF_REG_9, 0),
-
-		/* store output r2, map[2] = output r2 */
-		// get output r2 from the stack, and store it in r3
-		BPF_LDX_MEM(BPF_DW, BPF_REG_9, BPF_REG_10, -8), /* r3 = *(u64 *) (fp - 8) */
-		// set the key is 2
-		BPF_MOV64_IMM(BPF_REG_0, 2),
-		BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_0, -12), /* *(u32 *)(fp - 12) = r0 */
-		BPF_MOV64_REG(BPF_REG_2, BPF_REG_10), 
-		BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -12), /* r2 = fp - 12 */
-		BPF_LD_MAP_FD(BPF_REG_1, map_fd),
-		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-		BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
-		BPF_STX_MEM(BPF_DW, BPF_REG_0, BPF_REG_9, 0),
+		MAP_STORE(0)
+		MAP_STORE(1)
+		MAP_STORE(2)
+		MAP_STORE(3)
+		MAP_STORE(4)
+		MAP_STORE(5)
+		MAP_STORE(6)
+		MAP_STORE(7)
+		MAP_STORE(8)
+		MAP_STORE(9)
 
 		// r0 is the return value
 		BPF_MOV64_IMM(BPF_REG_0, 0), /* r0 = 0 */
