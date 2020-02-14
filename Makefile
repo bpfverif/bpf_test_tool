@@ -7,6 +7,9 @@ cprogs = bpf_test
 all: $(cprogs)
 	bash perm.sh
 
+allow_ptr_leaks: $(cprogs)
+	bash perm.sh allow_ptr_leaks
+
 %.o: %.c
 	$(CC) -c $< -o $@
 
