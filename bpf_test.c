@@ -63,7 +63,7 @@ static int test_bpf_prog_output(void)
 
 		/* test program start */
 		{183, 0, 0, 0, 1},  // r0 = 1
-		// {183, 1, 0, 0, 2},  // r1 = 2
+		{183, 1, 0, 0, 2},  // r1 = 2
 		{183, 2, 0, 0, 3},  // r2 = 3
 		{183, 3, 0, 0, 4},  // r3 = 4
 		{183, 4, 0, 0, 5},  // r4 = 5
@@ -86,8 +86,10 @@ static int test_bpf_prog_output(void)
 		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_8, -9 * size),
 		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_9, -10 * size),
 
+		// reading all registers (including those containing memory values)
+		// requires cap_sys_admin
 		MAP_STORE(0)
-		// MAP_STORE(1)
+		MAP_STORE(1)
 		MAP_STORE(2)
 		MAP_STORE(3)
 		MAP_STORE(4)
@@ -104,13 +106,14 @@ static int test_bpf_prog_output(void)
 
 	prog_fd = bpf_prog_load(BPF_PROG_TYPE_SOCKET_FILTER, prog, sizeof(prog),
 				"GPL", 0);
+
+	// Attempt to print the bpf_log_buf for verifier information
+	printf("Log buffer:\n %s\n---\n", bpf_log_buf);
+
 	if (prog_fd < 0) {
 		printf("failed to load prog '%s'\n", strerror(errno));
 		goto cleanup;
 	}
-
-	// Attempt to print the bpf_log_buf for verifier information
-	printf("Log buffer:\n %s\n---\n", bpf_log_buf);
 
 	sock = open_raw_sock("lo");
 
@@ -123,7 +126,6 @@ static int test_bpf_prog_output(void)
 	sleep(3);
 
 	for (int i = 0; i < 10; i++) {
-		if (i == 1) continue;
 		key = i;
 		assert(bpf_lookup_elem(map_fd, &key, &val[0]) == 0);
 		printf("r%d: %llx %lld \n", i, val[0], val[0]);	
