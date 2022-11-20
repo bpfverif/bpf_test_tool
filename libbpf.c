@@ -1,16 +1,4 @@
 /* eBPF mini library */
-#include <stdlib.h>
-#include <stdio.h>
-#include <linux/unistd.h>
-#include <unistd.h>
-#include <string.h>
-#include <linux/netlink.h>
-#include <linux/bpf.h>
-#include <errno.h>
-#include <net/ethernet.h>
-#include <net/if.h>
-#include <linux/if_packet.h>
-#include <arpa/inet.h>
 #include "libbpf.h"
 
 static __u64 ptr_to_u64(void *ptr)
