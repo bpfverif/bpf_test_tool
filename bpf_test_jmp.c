@@ -18,7 +18,7 @@
 #include <stddef.h>
 #include "libbpf.h"
 
-#define DEBUG
+// #define DEBUG
 
 #define MAP_STORE(r_i)                                                         \
         BPF_LDX_MEM(BPF_DW, BPF_REG_9, BPF_REG_10, -(r_i + 1) * size),         \
@@ -74,25 +74,27 @@ static int test_bpf_prog_output(void)
 
 #if 1
 		// r1=<known>, contains 0xffffffffffffffff
-		BPF_LD_IMM64(BPF_REG_1, 0x0), 
+		BPF_LD_IMM64(BPF_REG_1, 0x1), 
 
 		// r2=<unknown>, contains a35bbc2f4bf4fdf2
-		BPF_LD_IMM64(BPF_REG_2, 0xffffffffffffffff),
+		BPF_LD_IMM64(BPF_REG_2, 0xfffffffffffffffe),
 		BPF_ALU64_IMM(BPF_NEG, BPF_REG_2, 0),
 		BPF_ALU64_IMM(BPF_NEG, BPF_REG_2, 0),
 
-		BPF_JMP32_REG(BPF_JGE, BPF_REG_1, BPF_REG_2, 3),
+		BPF_JMP_REG(BPF_JGE, BPF_REG_1, BPF_REG_2, 3),
 
 #endif
 		// true branch
 		BPF_MOV64_IMM(BPF_REG_0, 0), /* r0 = 0 */
-		BPF_MOV64_IMM(BPF_REG_1, 1),
+		BPF_MOV64_IMM(BPF_REG_1, 0xdeadbeef),
+		BPF_EXIT_INSN(),
 
-#ifdef DEBUG
 		// false branch
 		BPF_MOV64_IMM(BPF_REG_0, 0), /* r0 = 0 */
-		BPF_MOV64_IMM(BPF_REG_1, 2),
+		BPF_MOV64_IMM(BPF_REG_1, 0xfeedbeef),
+		BPF_EXIT_INSN(),
 
+#ifdef DEBUG
 		// store r0 - r9 in the stack
 		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_0, -1 * size), // *(u64 *)(fp - 8) = r0 
 		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_1, -2 * size),
@@ -118,8 +120,6 @@ static int test_bpf_prog_output(void)
 		MAP_STORE(8)
 		MAP_STORE(9)
 #endif 	
-
-		BPF_EXIT_INSN(),
 	};
 
 	prog_fd = bpf_prog_load(BPF_PROG_TYPE_SOCKET_FILTER, prog, sizeof(prog),
