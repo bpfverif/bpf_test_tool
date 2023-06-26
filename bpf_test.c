@@ -18,6 +18,8 @@
 #include <stddef.h>
 #include "libbpf.h"
 
+// #define DEBUG
+
 #define MAP_STORE(r_i)                                                         \
         BPF_LDX_MEM(BPF_DW, BPF_REG_9, BPF_REG_10, -(r_i + 1) * size),         \
         BPF_MOV64_IMM(BPF_REG_0, r_i),                                         \
@@ -44,108 +46,22 @@ static int test_bpf_prog_output(void)
 	int size = 8;
 
 	struct bpf_insn prog[] = {
-		// BPF_MOV64_IMM(BPF_REG_0, 0),
-		// BPF_MOV64_IMM(BPF_REG_2, 0),
-		// BPF_MOV64_IMM(BPF_REG_3, 0),
-		// BPF_MOV64_IMM(BPF_REG_4, 0),
-		// BPF_MOV64_IMM(BPF_REG_5, 0),
-		// BPF_MOV64_IMM(BPF_REG_6, 0),
-		// BPF_MOV64_IMM(BPF_REG_7, 0),
-		// BPF_MOV64_IMM(BPF_REG_8, 0),
-		// BPF_MOV64_IMM(BPF_REG_9, 0),
-
-		/* test program start
-		{183, 0, 0, 0, 1},  // r0 = 1
-		{183, 1, 0, 0, 2},  // r1 = 2
-		{183, 2, 0, 0, 3},  // r2 = 3
-		{183, 3, 0, 0, 4},  // r3 = 4
-		{183, 4, 0, 0, 5},  // r4 = 5
-		{183, 5, 0, 0, 6},  // r5 = 6
-		{183, 6, 0, 0, 7},  // r6 = 7
-		{183, 7, 0, 0, 8},  // r7 = 8
-		{183, 8, 0, 0, 9},  // r8 = 9
-		{183, 9, 0, 0, 10}, // r9 = 10
-		test program end */
-
-// grapl 5.8
-#if 0
-		BPF_LD_IMM64(BPF_REG_1,  0x100000002),
-		BPF_LD_IMM64(BPF_REG_2, 0x00000000ffffffff), 
-		
-		BPF_MOV64_IMM(BPF_REG_3, 0),
-		BPF_ALU64_IMM(BPF_NEG, BPF_REG_3, 0),  
-		BPF_ALU64_IMM(BPF_NEG, BPF_REG_3, 0),
-
-		BPF_ALU64_IMM(BPF_LSH, BPF_REG_2, 32),
-		BPF_ALU64_REG(BPF_AND, BPF_REG_3, BPF_REG_2),
-		BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, 1),
-		BPF_ALU64_REG(BPF_AND, BPF_REG_3, BPF_REG_1),
-#endif
-
-
-// google 5.8 and bug
-
-#if 0
+		BPF_LD_IMM64(BPF_REG_1, 9223372037212029072),
+		BPF_ALU64_IMM(BPF_NEG, BPF_REG_1, 0),
+		BPF_ALU64_IMM(BPF_NEG, BPF_REG_1, 0),
+		BPF_LD_IMM64(BPF_REG_2, 9223372036854775808),
+		BPF_JMP_REG(BPF_JGE, BPF_REG_1, BPF_REG_2, 2),
 		BPF_MOV64_IMM(BPF_REG_0, 1),
-		BPF_MOV64_IMM(BPF_REG_1, 0),
-		BPF_ALU64_IMM(BPF_NEG, BPF_REG_1, 0),
-		BPF_ALU64_IMM(BPF_NEG, BPF_REG_1, 0),
-		BPF_LD_IMM64(BPF_REG_2, 0x600000002),
-		BPF_JMP_REG(BPF_JLT, BP
-#endif 
-
-
-
-// our 5.8 and bug
-#if 1
-		// r1=0x8000000000000000
-		BPF_LD_IMM64(BPF_REG_1, 0x8000000000000000), 
-		
-		// r2=<unknown>
-		BPF_LD_IMM64(BPF_REG_2, 0xa35bbc2f4bf4fdf2),
-		BPF_ALU64_IMM(BPF_NEG, BPF_REG_2, 0),
-		BPF_ALU64_IMM(BPF_NEG, BPF_REG_2, 0),
-
-		// r3 = 0xc11457710000000
-		BPF_LD_IMM64(BPF_REG_3, 0xc11457710000000),
-
-		// r1 = r1 & r2
-		BPF_ALU64_REG(BPF_AND, BPF_REG_1, BPF_REG_2),
-		// r3 = r3 & r1
-		BPF_ALU64_REG(BPF_AND, BPF_REG_3, BPF_REG_1),
-#endif
-
-
-		/* store r0 - r9 in the stack
-		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_0, -1 * size), // *(u64 *)(fp - 8) = r0 
+		BPF_EXIT_INSN(),
+		BPF_LD_IMM64(BPF_REG_3, 277025390626),
+		BPF_JMP_REG(BPF_JEQ, BPF_REG_3, BPF_REG_1, 24),
+		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_3, -4 * size),
 		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_1, -2 * size),
-		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_2, -3 * size),
-	 	BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_3, -4 * size),
-		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_4, -5 * size),
-		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_5, -6 * size),
-		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_6, -7 * size),
-		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_7, -8 * size),
-		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_8, -9 * size),
-		BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_9, -10 * size),
-		*/
-
-		// reading all registers (including those containing memory values)
-		// requires cap_sys_admin
-		/*
-		MAP_STORE(0)
-		MAP_STORE(1)
-		MAP_STORE(2)
 		MAP_STORE(3)
-		MAP_STORE(4)
-		MAP_STORE(5)
-		MAP_STORE(6)
-		MAP_STORE(7)
-		MAP_STORE(8)
-		MAP_STORE(9)
-		*/
-
-		// r0 is the return value
-		BPF_MOV64_IMM(BPF_REG_0, 0), /* r0 = 0 */
+		MAP_STORE(1)
+		BPF_MOV64_IMM(BPF_REG_0, 1),
+		BPF_EXIT_INSN(),
+		BPF_MOV64_IMM(BPF_REG_0, 1),
 		BPF_EXIT_INSN(),
 	};
 
@@ -160,7 +76,6 @@ static int test_bpf_prog_output(void)
 		goto cleanup;
 	}
 
-#if 0
 	sock = open_raw_sock("lo");
 
 	if (setsockopt(sock, SOL_SOCKET, SO_ATTACH_BPF, &prog_fd,
@@ -176,8 +91,6 @@ static int test_bpf_prog_output(void)
 		assert(bpf_lookup_elem(map_fd, &key, &val[0]) == 0);
 		printf("r%d: %llx %lld \n", i, val[0], val[0]);	
 	}
-
-#endif 
 
 cleanup:
 	/* maps, programs, raw sockets will auto cleanup on process exit */
