@@ -1,5 +1,6 @@
 *.o
 *.o.s
 bpf_test
+bpf_test_output.txt
 *~
 .*~
