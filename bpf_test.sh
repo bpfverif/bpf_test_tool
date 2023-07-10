@@ -2,10 +2,12 @@
 
 # Check if the required arguments are provided
 if [ $# -ne 1 ]; then
-  echo "Usage: $0 <filename>"
+  echo "Usage: $0 <ebpf_prog_path>"
   exit 1
 fi
 
+script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+cd ${script_dir}
 bpf_prog_file="$1"
 input_file="bpf_test_1.c"
 output_file="bpf_test.c"
@@ -16,12 +18,7 @@ if [ ! -f "$bpf_prog_file" ]; then
   exit 1
 fi
 
-# Get the contents of bpf_prog_file and escape special characters
-bpf_prog_file_content=$(< "$bpf_prog_file")
-bpf_prog_file_content_escaped=$(printf '%s\n' "$bpf_prog_file_content" | sed 's/[\/&*]/\\&/g')
-
-# Search and replace the string in input_file
-exp="sed \"s@struct bpf_insn prog\[\] = {};@struct bpf_insn prog[] = {$bpf_prog_file_content_escaped};@\" \"$input_file\" > \"$output_file\""
+exp="sed \"s|bpf_prog.txt|${bpf_prog_file}|g\" ${input_file} > ${output_file}"
 eval $exp
 
 # compile, and get output

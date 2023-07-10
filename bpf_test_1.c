@@ -45,7 +45,10 @@ static int test_bpf_prog_output(void)
 
 	int size = 8;
 
-	struct bpf_insn prog[] = {};
+	// A placeholder for the bpf program
+	struct bpf_insn prog[] = {
+		#include "bpf_prog.txt"
+	};
 
 	prog_fd = bpf_prog_load(BPF_PROG_TYPE_SOCKET_FILTER, prog, sizeof(prog),
 				"GPL", 0);
