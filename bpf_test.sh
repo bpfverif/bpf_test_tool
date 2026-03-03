@@ -9,8 +9,8 @@ fi
 script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 cd ${script_dir}
 bpf_prog_file="$1"
-input_file="bpf_test_1.c"
-output_file="bpf_test.c"
+input_file="bpf_test.c"
+log_file="bpf_test_output.txt"
 
 # Check if the bpf_prog_file exists
 if [ ! -f "$bpf_prog_file" ]; then
@@ -18,13 +18,17 @@ if [ ! -f "$bpf_prog_file" ]; then
   exit 1
 fi
 
-exp="sed \"s|bpf_prog.txt|${bpf_prog_file}|g\" ${input_file} > ${output_file}"
-eval $exp
-
 # compile, and get output
-make clean > /dev/null
-sudo make bpf_test > /dev/null
-sudo ./bpf_test > bpf_test_output.txt
+make clean
+make BPF_PROG="${bpf_prog_file}" bpf_test allow_ptr_leaks
+./bpf_test > "${log_file}"
+
+# If the program failed the verifier, exit
+if tail -n 1 "${log_file}" | grep -q "failed"; then
+    tail -n 1 "${log_file}"
+    exit
+fi
+
 echo "-----------------------------------------------------"
 
 # Extract the last two lines from bpf_prog_file
